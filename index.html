@@ -1,27 +1,38 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-<title>Pro Racing Game</title>
+<title>2D Racing Game</title>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <style>
 
 body{
-margin:0;
-overflow:hidden;
-font-family:Arial;
-background:black;
 text-align:center;
-color:white;
+background:#ccc;
+font-family:Arial;
+margin:0;
 }
 
+/* loading screen */
+#loading{
+position:fixed;
+width:100%;
+height:100%;
+background:black;
+color:white;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+font-size:30px;
+z-index:10;
+}
+
+/* menu */
 #menu{
-position:absolute;
-top:40%;
-left:50%;
-transform:translate(-50%,-50%);
+display:none;
+margin-top:40px;
 }
 
 #menu button{
@@ -30,60 +41,89 @@ font-size:20px;
 cursor:pointer;
 }
 
+/* score */
 #score{
-position:absolute;
-top:10px;
-left:10px;
-font-size:18px;
-z-index:2;
+font-size:20px;
+margin:10px;
 }
 
-#leaderboard{
-position:absolute;
-top:10px;
-right:10px;
-background:rgba(0,0,0,0.6);
-padding:10px;
-border-radius:8px;
-font-size:14px;
-}
-
+/* game area */
 .gameArea{
-width:100vw;
-height:100vh;
+width:320px;
+height:520px;
+margin:auto;
 position:relative;
 overflow:hidden;
-background-image:url("https://i.imgur.com/2R8KJ7G.jpg");
-background-size:cover;
-background-position:center;
+border:4px solid black;
+
+background:
+linear-gradient(to right,
+green 0%,
+green 20%,
+#333 20%,
+#333 80%,
+green 80%,
+green 100%);
 }
 
+/* road lines */
 .line{
 width:10px;
 height:100px;
 background:white;
 position:absolute;
-left:50%;
-transform:translateX(-50%);
+left:155px;
 }
 
+/* player car */
 .car{
-width:60px;
-height:100px;
+width:50px;
+height:80px;
+background:red;
 position:absolute;
 bottom:20px;
-left:45%;
-background:url("https://i.imgur.com/7Q8FQ0N.png");
-background-size:cover;
+left:130px;
+border-radius:8px;
 }
 
+/* enemy vehicles */
 .enemyCar{
+width:50px;
+height:80px;
+background:yellow;
+position:absolute;
+top:-80px;
+border-radius:8px;
+}
+
+.truck{
 width:60px;
 height:100px;
+background:blue;
 position:absolute;
-top:-120px;
-background:url("https://i.imgur.com/YqQK0ZP.png");
-background-size:cover;
+top:-100px;
+border-radius:6px;
+}
+
+.bus{
+width:60px;
+height:110px;
+background:orange;
+position:absolute;
+top:-110px;
+border-radius:6px;
+}
+
+/* buttons */
+.controls{
+margin-top:10px;
+}
+
+.controls button{
+width:90px;
+padding:10px;
+font-size:16px;
+margin:5px;
 }
 
 </style>
@@ -91,54 +131,64 @@ background-size:cover;
 
 <body>
 
+<div id="loading">
+🚗 Racing Game<br>
+Loading...
+</div>
+
 <div id="menu">
-<h1>🏁 Racing Game</h1>
+<h1>🏁 2D Racing Game</h1>
 <button onclick="startGame()">Start Game</button>
 </div>
 
 <div id="score">Score: 0</div>
 
-<div id="leaderboard">
-<b>Leaderboard</b>
-<div id="scores"></div>
-</div>
-
 <div class="gameArea" id="gameArea">
 <div class="car" id="playerCar"></div>
 </div>
 
+<div class="controls">
+<button id="leftBtn">⬅ Left</button>
+<button id="rightBtn">Right ➡</button>
+<button onclick="nitro()">Nitro 🚀</button>
+<button onclick="toggleMute()">🔇 Mute</button>
+</div>
+
+<audio id="engineSound" src="https://actions.google.com/sounds/v1/transportation/car_engine.ogg"></audio>
+<audio id="crashSound" src="https://actions.google.com/sounds/v1/impacts/crash.ogg"></audio>
+<audio id="nitroSound" src="https://actions.google.com/sounds/v1/transportation/rocket_boost.ogg"></audio>
+
 <script>
+
+/* loading */
+window.onload=function(){
+setTimeout(function(){
+document.getElementById("loading").style.display="none";
+document.getElementById("menu").style.display="block";
+},2000);
+}
 
 let car=document.getElementById("playerCar");
 let gameArea=document.getElementById("gameArea");
 let scoreBox=document.getElementById("score");
 
-let position=window.innerWidth/2;
+let engineSound=document.getElementById("engineSound");
+let crashSound=document.getElementById("crashSound");
+let nitroSound=document.getElementById("nitroSound");
+
+let position=130;
 let score=0;
-let speed=6;
+let speed=5;
 let gameRunning=false;
+let muted=false;
 
-let leaderboard=JSON.parse(localStorage.getItem("leaderboard")) || [];
-
-function showLeaderboard(){
-
-let html="";
-
-leaderboard.slice(0,5).forEach((s,i)=>{
-html+=(i+1)+". "+s+"<br>";
-});
-
-document.getElementById("scores").innerHTML=html;
-
-}
-
-showLeaderboard();
+let moveInterval;
 
 /* road lines */
-for(let i=0;i<6;i++){
+for(let i=0;i<5;i++){
 let line=document.createElement("div");
 line.classList.add("line");
-line.style.top=(i*150)+"px";
+line.style.top=(i*120)+"px";
 gameArea.appendChild(line);
 }
 
@@ -147,69 +197,99 @@ function startGame(){
 
 document.getElementById("menu").style.display="none";
 
+clearRoad();
+
 score=0;
-speed=6;
-position=window.innerWidth/2;
+speed=5;
+position=130;
 
 car.style.left=position+"px";
 
 gameRunning=true;
 
+scoreBox.innerText="Score: 0";
+
+engineSound.loop=true;
+
+if(!muted){
+engineSound.play();
 }
 
-/* keyboard control */
-document.addEventListener("keydown",function(e){
+}
+
+/* move left */
+function moveLeft(){
+position-=10;
+if(position<70) position=70;
+car.style.left=position+"px";
+}
+
+/* move right */
+function moveRight(){
+position+=10;
+if(position>200) position=200;
+car.style.left=position+"px";
+}
+
+/* android touch controls */
+document.getElementById("leftBtn").addEventListener("touchstart",function(){
+moveInterval=setInterval(moveLeft,40);
+});
+
+document.getElementById("leftBtn").addEventListener("touchend",function(){
+clearInterval(moveInterval);
+});
+
+document.getElementById("rightBtn").addEventListener("touchstart",function(){
+moveInterval=setInterval(moveRight,40);
+});
+
+document.getElementById("rightBtn").addEventListener("touchend",function(){
+clearInterval(moveInterval);
+});
+
+/* nitro */
+function nitro(){
 
 if(!gameRunning) return;
 
-if(e.key==="ArrowLeft") moveLeft();
-if(e.key==="ArrowRight") moveRight();
+if(!muted) nitroSound.play();
 
-});
+speed+=5;
 
-/* touch control */
-gameArea.addEventListener("touchmove",function(e){
+setTimeout(function(){
+speed-=5;
+},2000);
 
-let x=e.touches[0].clientX;
+}
 
-if(x<window.innerWidth/2){
-moveLeft();
+/* mute */
+function toggleMute(){
+
+muted=!muted;
+
+if(muted){
+engineSound.pause();
 }else{
-moveRight();
+engineSound.play();
 }
-
-});
-
-/* movement */
-function moveLeft(){
-
-position-=30;
-if(position<0) position=0;
-
-car.style.left=position+"px";
 
 }
 
-function moveRight(){
-
-position+=30;
-if(position>window.innerWidth-60)
-position=window.innerWidth-60;
-
-car.style.left=position+"px";
-
-}
-
-/* enemy */
+/* create enemy */
 function createEnemy(){
 
 if(!gameRunning) return;
 
 let enemy=document.createElement("div");
 
-enemy.classList.add("enemyCar");
+let type=Math.floor(Math.random()*3);
 
-enemy.style.left=Math.random()*(window.innerWidth-60)+"px";
+if(type===0) enemy.classList.add("enemyCar");
+else if(type===1) enemy.classList.add("truck");
+else enemy.classList.add("bus");
+
+enemy.style.left=(70+Math.random()*140)+"px";
 
 gameArea.appendChild(enemy);
 
@@ -217,9 +297,10 @@ moveEnemy(enemy);
 
 }
 
+/* enemy movement */
 function moveEnemy(enemy){
 
-let top=-120;
+let top=-100;
 
 let move=setInterval(function(){
 
@@ -232,22 +313,32 @@ top+=speed;
 
 enemy.style.top=top+"px";
 
-if(top>window.innerHeight){
+if(top>520){
 enemy.remove();
 clearInterval(move);
 }
 
 if(checkCollision(enemy)){
 
-gameOver();
+gameRunning=false;
+
+engineSound.pause();
+
+if(!muted) crashSound.play();
+
+alert("Game Over! Score: "+score);
+
+clearRoad();
+
+document.getElementById("menu").style.display="block";
 
 }
 
-},40);
+},50);
 
 }
 
-/* road lines */
+/* road animation */
 function moveLines(){
 
 if(!gameRunning) return;
@@ -260,62 +351,47 @@ let top=parseInt(line.style.top);
 
 top+=speed;
 
-if(top>window.innerHeight){
-
+if(top>520){
 top=-100;
-
 score++;
-
 scoreBox.innerText="Score: "+score;
 
+if(score%10===0) speed++;
 }
 
 line.style.top=top+"px";
 
 });
 
-gameArea.style.backgroundPositionY=
-(parseInt(gameArea.style.backgroundPositionY||0)+speed)+"px";
-
 }
 
 /* collision */
 function checkCollision(enemy){
 
-let a=car.getBoundingClientRect();
-let b=enemy.getBoundingClientRect();
+let carRect=car.getBoundingClientRect();
+let enemyRect=enemy.getBoundingClientRect();
 
-return !(a.bottom<b.top ||
-a.top>b.bottom ||
-a.right<b.left ||
-a.left>b.right);
+return !(carRect.bottom<enemyRect.top ||
+carRect.top>enemyRect.bottom ||
+carRect.right<enemyRect.left ||
+carRect.left>enemyRect.right);
 
 }
 
-/* game over */
-function gameOver(){
+/* clear road */
+function clearRoad(){
 
-gameRunning=false;
+let enemies=document.querySelectorAll(".enemyCar,.truck,.bus");
 
-leaderboard.push(score);
-
-leaderboard.sort((a,b)=>b-a);
-
-leaderboard=leaderboard.slice(0,5);
-
-localStorage.setItem("leaderboard",JSON.stringify(leaderboard));
-
-showLeaderboard();
-
-alert("Game Over! Score: "+score);
-
-document.getElementById("menu").style.display="block";
+enemies.forEach(function(e){
+e.remove();
+});
 
 }
 
 /* loops */
 setInterval(createEnemy,2000);
-setInterval(moveLines,40);
+setInterval(moveLines,50);
 
 </script>
 
